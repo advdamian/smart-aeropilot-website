@@ -1,0 +1,338 @@
+/* Clean, unbloated wireframe layout - Easy to style and extend */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: #f4f6f8;
+    color: #1e293b;
+    line-height: 1.5;
+    padding: 16px;
+}
+
+/* Header */
+header {
+    background: #0f172a;
+    color: #fff;
+    padding: 14px 20px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+header h1 {
+    font-size: 19px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+header .user-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    background: #1e293b;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #334155;
+}
+
+.role-tag-admin {
+    background: #dc2626;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 11px;
+}
+
+.role-tag-passenger {
+    background: #0284c7;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 11px;
+}
+
+/* Nav Tabs */
+nav.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 4px;
+    overflow-x: auto;
+}
+
+nav.tabs button {
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-bottom: none;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    color: #475569;
+    white-space: nowrap;
+}
+
+nav.tabs button.active {
+    background: #2563eb;
+    color: #fff;
+    border-color: #2563eb;
+}
+
+/* Layout containers */
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+@media (max-width: 860px) {
+    .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Cards & Panels */
+.card {
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    margin-bottom: 16px;
+}
+
+.card h2, .card h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #0f172a;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 6px;
+}
+
+/* Forms & Inputs */
+label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #334155;
+}
+
+input, select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+button.btn-primary {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+button.btn-primary:hover { background: #1d4ed8; }
+
+button.btn-secondary {
+    background: #e2e8f0;
+    color: #1e293b;
+    border: 1px solid #cbd5e1;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+button.btn-danger {
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+button.btn-danger:hover { background: #b91c1c; }
+
+/* Video Frame */
+.video-frame {
+    width: 100%;
+    max-height: 420px;
+    object-fit: cover;
+    background: #000;
+    border-radius: 6px;
+    border: 1px solid #94a3b8;
+}
+
+/* Lane card styles */
+.lane-card {
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+    background: #f8fafc;
+}
+
+.lane-card.fastest {
+    border-color: #16a34a;
+    background: #f0fdf4;
+}
+
+.lane-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.badge-fastest { background: #22c55e; color: #fff; }
+.badge-normal { background: #94a3b8; color: #fff; }
+
+.metric-big {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+/* Restricted banner for CCTV */
+.restricted-banner {
+    background: #fef2f2;
+    border: 2px dashed #ef4444;
+    padding: 24px;
+    border-radius: 8px;
+    text-align: center;
+    color: #991b1b;
+}
+
+/* Risk meter */
+.risk-meter {
+    height: 16px;
+    background: #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 12px 0;
+}
+
+.risk-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.risk-LOW { background: #22c55e; }
+.risk-MODERATE { background: #eab308; }
+.risk-HIGH { background: #f97316; }
+.risk-CRITICAL { background: #ef4444; }
+
+.status-pill {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.pill-CRITICAL { background: #fee2e2; color: #b91c1c; }
+.pill-HIGH { background: #ffedd5; color: #c2410c; }
+.pill-MODERATE { background: #fef9c3; color: #854d0e; }
+.pill-LOW { background: #dcfce7; color: #15803d; }
+
+/* Voucher card */
+.voucher-box {
+    border: 2px dashed #0284c7;
+    background: #f0f9ff;
+    padding: 16px;
+    border-radius: 8px;
+    margin-top: 14px;
+}
+
+.voucher-code {
+    font-family: monospace;
+    font-size: 16px;
+    font-weight: 800;
+    background: #e0f2fe;
+    padding: 5px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    color: #0369a1;
+}
+
+/* Passenger Table */
+table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 10px;
+}
+
+table.data-table th, table.data-table td {
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    text-align: left;
+}
+
+table.data-table th {
+    background: #f1f5f9;
+    font-weight: 700;
+}
+
+/* Login Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-box {
+    background: #fff;
+    padding: 24px;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}

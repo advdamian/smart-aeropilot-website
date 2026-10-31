@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart AeroPilot Hub - Airport & Passenger Assistant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Top Header -->
+    <header>
+        <div>
+            <h1>✈️ Smart AeroPilot Hub</h1>
+            <div style="font-size: 12px; color: #94a3b8;">
+                Sistem integrat de securitate, analiză meteo & re-rutare automată (Java Dijkstra Engine)
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div class="user-badge" id="user-display">
+                <span id="role-tag" class="role-tag-passenger">PASAGER</span>
+                <span id="user-name-display" style="font-weight: 600;">Damian</span>
+            </div>
+            <button class="btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="openLoginModal()">Schimbă Contul</button>
+            <button class="btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="openApiConfigModal()">⚙️ API Host</button>
+            <a id="swagger-link" href="/docs" target="_blank" style="color: #38bdf8; font-size: 12px; text-decoration: none;">📚 Swagger API</a>
+        </div>
+    </header>
+
+    <!-- Connection Banner (Shows if running on GitHub Pages without live backend) -->
+    <div id="gh-pages-banner" style="display: none; background: #e0f2fe; border: 1px solid #7dd3fc; color: #0369a1; padding: 8px 16px; border-radius: 6px; font-size: 12px; margin-bottom: 16px; justify-content: space-between; align-items: center;">
+        <span>🌐 <strong>Găzduit pe GitHub Pages:</strong> Rulați backend-ul local (<code>./run.sh</code>) sau conectați domeniul de API pentru streaming live. Momentan rulează în <strong>Mod Standalone Demo</strong>.</span>
+        <button class="btn-secondary" style="padding: 3px 8px; font-size: 11px;" onclick="openApiConfigModal()">Configurează API</button>
+    </div>
+
+    <!-- Nav Tabs (Controlled dynamically by role) -->
+    <nav class="tabs" id="main-tabs">
+        <button id="tab-btn-overview" class="active" onclick="switchTab('tab-overview')">Panou General</button>
+        <button id="tab-btn-queue" onclick="switchTab('tab-queue')">Control Securitate (Cozi)</button>
+        <button id="tab-btn-risk" onclick="switchTab('tab-risk')">Risc Zbor & Meteo</button>
+        <button id="tab-btn-reroute" onclick="switchTab('tab-reroute')">Re-rutare & Compensare</button>
+        <button id="tab-btn-java" style="display: none; border-color: #ef4444; color: #dc2626;" onclick="switchTab('tab-java')">🚨 Dispecerat Anulări Java (Admin)</button>
+    </nav>
+
+    <!-- TAB 1: OVERVIEW -->
+    <div id="tab-overview" class="tab-content active">
+        <!-- Admin only pitch banner -->
+        <div class="card admin-only" style="border-left: 4px solid #dc2626; display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h3 style="color: #dc2626; border: none; margin: 0;">Dispecerat Operațional — Simulare Live pentru Pitch</h3>
+                    <p style="font-size: 13px; color: #475569; margin-top: 4px;">
+                        Declanșează o criză meteo la Londra Heathrow (ceață critică sub 200m). Sistemul va recalcula riscul zborului RO301, va apela algoritmul de re-rutare și va genera voucherele legale.
+                    </p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-danger" onclick="triggerCrisisDemo()">🚨 Declanșează Criza Meteo</button>
+                    <button class="btn-secondary" onclick="resetDemo()">↺ Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-3">
+            <!-- Queue Card -->
+            <div class="card">
+                <h3>Ghidare Securitate</h3>
+                <div id="overview-fastest-lane" class="metric-big" style="color: #16a34a;">Banda 1</div>
+                <div id="overview-queue-time" style="font-size: 13px; color: #64748b; margin-top: 4px;">Timp estimat: ~6 min</div>
+                <button class="btn-primary" style="margin-top: 14px; width: 100%;" onclick="switchTab('tab-queue')">
+                    Vezi Recomandarea Benzii →
+                </button>
+            </div>
+
+            <!-- Flight Status Card -->
+            <div class="card">
+                <h3>Zbor Monitorizat</h3>
+                <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                    <span id="overview-flight-code" class="metric-big">RO301</span>
+                    <span id="overview-risk-pill" class="status-pill pill-MODERATE">MODERAT (45%)</span>
+                </div>
+                <div id="overview-flight-route" style="font-size: 13px; color: #64748b; margin-top: 4px;">OTP (București) → LHR (Londra)</div>
+                <button class="btn-primary" style="margin-top: 14px; width: 100%;" onclick="switchTab('tab-risk')">
+                    Verifică Meteo & Risc →
+                </button>
+            </div>
+
+            <!-- Reroute & Voucher Card -->
+            <div class="card">
+                <h3>Plan Recuperare & Asistență</h3>
+                <div id="overview-reroute-status" class="metric-big" style="font-size: 20px; color: #2563eb;">5 Rute Disponibile</div>
+                <div id="overview-voucher-status" style="font-size: 13px; color: #64748b; margin-top: 4px;">Garanție EU261: €400</div>
+                <button class="btn-primary" style="margin-top: 14px; width: 100%;" onclick="switchTab('tab-reroute')">
+                    Vezi Opțiuni Tranzit & Voucher →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: QUEUE & COMPUTER VISION -->
+    <div id="tab-queue" class="tab-content">
+        <!-- Passenger View: ONLY recommendation, NO CCTV footage -->
+        <div id="passenger-queue-view" style="display: block;">
+            <div class="card" style="border-left: 4px solid #16a34a;">
+                <h2>Recomandarea Ta de Acces Rapid la Securitate</h2>
+                <p style="font-size: 14px; color: #334155; margin-bottom: 16px;">
+                    Sistemul inteligent al aeroportului analizează în timp real încărcătura la porțile de scanare și îți indică cea mai rapidă bandă pentru a evita întârzierile.
+                </p>
+                <div class="grid-2">
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 20px; border-radius: 8px; text-align: center;">
+                        <span style="font-size: 13px; font-weight: 700; color: #15803d; text-transform: uppercase;">BANDA RECOMANDATĂ</span>
+                        <div id="passenger-fastest-lane" class="metric-big" style="font-size: 38px; color: #16a34a; margin: 8px 0;">Banda 1</div>
+                        <div id="passenger-wait-time" style="font-size: 16px; font-weight: 600; color: #1e293b;">Timp estimat: ~5 min</div>
+                        <div id="passenger-lane-status" style="font-size: 13px; color: #15803d; margin-top: 4px;">Flux continuu și timp redus de așteptare</div>
+                    </div>
+                    <div class="restricted-banner">
+                        <div style="font-size: 24px; margin-bottom: 8px;">🔒</div>
+                        <strong style="display: block; margin-bottom: 6px;">Flux Video Securizat (Confidențial)</strong>
+                        <p style="font-size: 12px; line-height: 1.4;">
+                            Conform politicilor de securitate ale aeroportului, imaginile camerelor CCTV și senzorii de scanare sunt accesibile exclusiv personalului de securitate și dispeceratului aeroportuar.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin View: FULL CCTV FOOTAGE & SENSOR DETAILS -->
+        <div id="admin-queue-view" style="display: none;">
+            <div class="grid-2">
+                <div class="card">
+                    <h2>Camere CCTV Securitate — Detecție YOLOv8 + IR Simulat</h2>
+                    <img id="admin-live-stream" class="video-frame" src="/api/queue/stream?role=admin" alt="Flux CCTV Securitate">
+                    <div style="margin-top: 10px; display: flex; gap: 8px;">
+                        <select id="video-source-select" style="max-width: 220px;" onchange="changeVideoSource()">
+                            <option value="demo">Clip Demonstrativ (WebM)</option>
+                            <option value="webcam">Camera Web Locală (Webcam 0)</option>
+                        </select>
+                        <span style="font-size: 12px; color: #64748b; align-self: center;">CPU ONNX Inference Activ</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Telemetrie Benzi Securitate (Ops Center)</h2>
+                    <div id="admin-queue-alert" style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 8px 12px; font-weight: 600; font-size: 13px; margin-bottom: 12px;">
+                        Preluare date senzori...
+                    </div>
+                    <div class="grid-3" id="admin-lanes-container">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                    <div style="margin-top: 16px; font-size: 12px; color: #64748b; background: #f8fafc; padding: 10px; border-radius: 6px;">
+                        <strong>Formulă fuziune senzorială:</strong> 0.7 × YOLO + 0.3 × IR. Bagaje: rucsac (+120s), valiză (+90s), laptop (+60s), geantă (+30s).
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: FLIGHT RISK & WEATHER -->
+    <div id="tab-risk" class="tab-content">
+        <div class="grid-2">
+            <div class="card">
+                <h2>Selecție Zbor & Condiții Meteo</h2>
+                <label for="flight-select">Alege Zborul:</label>
+                <select id="flight-select" onchange="evaluateFlightRisk()">
+                    <option value="RO301">RO301 — București (OTP) → Londra Heathrow (LHR)</option>
+                    <option value="AP103">AP103 (Java) — Henri Coandă (LROP) → Paris CDG (LFPG)</option>
+                    <option value="LH1655">LH1655 — București (OTP) → München (MUC)</option>
+                    <option value="W43105">W43105 — București (OTP) → Paris Beauvais (CDG)</option>
+                    <option value="LH1412">LH1412 — București (OTP) → Frankfurt (FRA)</option>
+                    <option value="OS784">OS784 — București (OTP) → Viena (VIE)</option>
+                </select>
+
+                <div class="grid-2" style="margin-top: 14px;">
+                    <div style="background: #f8fafc; padding: 12px; border-radius: 6px;">
+                        <h4 style="font-size: 12px; color: #64748b;">METEO PLECARE (OTP)</h4>
+                        <div id="meteo-origin-cond" style="font-weight: 700; font-size: 15px;">--</div>
+                        <div id="meteo-origin-details" style="font-size: 12px; color: #475569;">--</div>
+                    </div>
+                    <div style="background: #f8fafc; padding: 12px; border-radius: 6px;">
+                        <h4 style="font-size: 12px; color: #64748b;">METEO DESTINAȚIE</h4>
+                        <div id="meteo-dest-cond" style="font-weight: 700; font-size: 15px;">--</div>
+                        <div id="meteo-dest-details" style="font-size: 12px; color: #475569;">--</div>
+                    </div>
+                </div>
+
+                <div class="admin-only" style="margin-top: 16px; display: none;">
+                    <label>Simulare Meteo (Exclusiv Admin):</label>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-primary" style="flex: 1;" onclick="setWeatherCrisis('fog')">Ceață Densă</button>
+                        <button class="btn-primary" style="flex: 1;" onclick="setWeatherCrisis('storm')">Furtună</button>
+                        <button class="btn-secondary" style="flex: 1;" onclick="evaluateFlightRisk()">Meteo Normal</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Scor de Risc & Recomandare</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 13px; font-weight: 600;">Probabilitate Întârziere / Anulare:</span>
+                    <span id="risk-score-badge" class="status-pill pill-MODERATE">50%</span>
+                </div>
+
+                <div class="risk-meter">
+                    <div id="risk-progress-bar" class="risk-fill risk-MODERATE" style="width: 50%;"></div>
+                </div>
+
+                <div id="risk-recommendation" style="font-size: 13px; font-weight: 600; padding: 10px; border-radius: 6px; background: #fef9c3; color: #854d0e; margin-bottom: 12px;">
+                    Calculare date risc...
+                </div>
+
+                <h4 style="font-size: 12px; color: #64748b; margin-bottom: 6px;">FACTORI IDENTIFICAȚI:</h4>
+                <ul id="risk-factors-list" style="font-size: 12px; padding-left: 20px; color: #334155; margin-bottom: 14px;">
+                    <!-- Factors injected via JS -->
+                </ul>
+
+                <button id="btn-trigger-reroute" class="btn-danger" style="width: 100%; display: none;" onclick="goToRerouteTab()">
+                    ⚠️ Deschide Modulul de Re-rutare & Voucher →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: RE-ROUTING & EU261 -->
+    <div id="tab-reroute" class="tab-content">
+        <div class="grid-2">
+            <div class="card">
+                <h2>Rute Alternative Identificate (Direct & Escală)</h2>
+                <div id="routes-container">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Voucher de Compensație Pasager</h2>
+                <div class="voucher-box" id="voucher-box">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: 800; font-size: 14px; color: #0369a1;">VOUCHER LEGAL EU261</span>
+                        <span id="voucher-amount" style="font-size: 20px; font-weight: 800; color: #0284c7;">€400</span>
+                    </div>
+                    <div style="font-size: 12px; margin-bottom: 6px;">
+                        <strong>Baza legală:</strong> <span id="voucher-regulation">Regulamentul (CE) Nr. 261/2004</span>
+                    </div>
+                    <div style="font-size: 12px; margin-bottom: 6px;">
+                        <strong>Pasager:</strong> <span id="voucher-passenger">Damian</span>
+                    </div>
+                    <div style="font-size: 12px; margin-bottom: 6px;">
+                        <strong>Motiv:</strong> <span id="voucher-reason">Anulare / Risc critic zbor</span>
+                    </div>
+                    <div style="margin-top: 10px; border-top: 1px dashed #7dd3fc; padding-top: 8px;">
+                        <span style="font-size: 11px; color: #0284c7; display: block; margin-bottom: 4px;">COD VOUCHER:</span>
+                        <span id="voucher-code" class="voucher-code">EU261-OTP-XXXXXX</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 14px;">
+                    <button class="btn-primary" style="width: 100%;" onclick="alert('Confirmare trimisă cu succes!')">
+                        Confirmă Re-rutarea & Emite Noul Boarding Pass
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 5: ADMIN JAVA REROUTE ENGINE DISPATCH -->
+    <div id="tab-java" class="tab-content">
+        <div class="card" style="border-left: 4px solid #ef4444;">
+            <h2>Dispecerat Re-rutare Java (Time-dependent Dijkstra)</h2>
+            <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">
+                Modulul dezvoltat de echipă în Java analizează întreg graful aeroportuar, prioritizează pasagerii (familii, conexiuni strânse, deadline-uri) și le re-rezervă automat locuri pe zboruri cu escală.
+            </p>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <label style="margin: 0; min-width: 110px;">Zbor de Anulat:</label>
+                <select id="java-flight-select" style="margin: 0; max-width: 250px;">
+                    <option value="AP103">AP103 — Henri Coandă (LROP) → Paris CDG (LFPG)</option>
+                    <option value="AP105">AP105 — Henri Coandă (LROP) → Viena (LOWW)</option>
+                    <option value="AP104">AP104 — Henri Coandă (LROP) → Amsterdam (EHAM)</option>
+                    <option value="AP106">AP106 — Henri Coandă (LROP) → Frankfurt (EDDF)</option>
+                </select>
+                <button class="btn-danger" onclick="executeJavaCancel()">🚨 Execută Anulare & Re-rutare Java</button>
+            </div>
+        </div>
+
+        <div class="card" id="java-results-card" style="display: none;">
+            <h3>Rezultate Re-rutare Pasageri (Java Engine)</h3>
+            <div id="java-summary" style="font-size: 13px; font-weight: 600; color: #0284c7; margin-bottom: 12px;"></div>
+            <div style="overflow-x: auto;">
+                <table class="data-table" id="java-passengers-table">
+                    <thead>
+                        <tr>
+                            <th>Pasager</th>
+                            <th>Prioritate</th>
+                            <th>Detalii Situație</th>
+                            <th>Zbor / Itinerariu Nou Atribuit</th>
+                            <th>Întârziere</th>
+                            <th>Compensație Voucher</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="java-passengers-tbody">
+                        <!-- Populated dynamically via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIN MODAL -->
+    <div id="login-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-box">
+            <h2 style="margin-bottom: 14px; font-size: 18px;">Autentificare AeroPilot</h2>
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 14px;">
+                Alege tipul de utilizator pentru a testa sistemul:
+            </p>
+
+            <label for="auth-username">Nume / Utilizator:</label>
+            <input type="text" id="auth-username" placeholder="Ex: Damian sau admin" value="Damian">
+
+            <label for="auth-password">Parolă:</label>
+            <input type="password" id="auth-password" placeholder="Pentru admin introdu 'admin', pentru pasager orice" value="">
+
+            <div style="display: flex; gap: 8px; margin-top: 14px;">
+                <button class="btn-primary" style="flex: 1;" onclick="handleLoginSubmit()">Conectare</button>
+                <button class="btn-secondary" onclick="closeLoginModal()">Anulează</button>
+            </div>
+
+            <div style="margin-top: 14px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+                💡 <strong>Cont Admin:</strong> utilizator <code>admin</code>, parolă <code>admin</code> (acces complet CCTV și dispecerat Java).<br>
+                💡 <strong>Cont Pasager:</strong> orice alt nume (doar recomandare bandă rapidă, fără acces la camere).
+            </div>
+        </div>
+    </div>
+
+    <!-- API CONFIG MODAL FOR GITHUB PAGES / CUSTOM DOMAIN -->
+    <div id="api-config-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-box">
+            <h2 style="margin-bottom: 14px; font-size: 18px;">Configurare Backend API</h2>
+            <p style="font-size: 13px; color: #64748b; margin-bottom: 12px;">
+                Dacă site-ul este găzduit pe GitHub Pages sau un domeniu separat, introdu adresa backend-ului tău (ex: <code>http://localhost:8000</code> sau <code>https://api.domeniultau.ro</code>):
+            </p>
+
+            <label for="api-url-input">API Base URL:</label>
+            <input type="text" id="api-url-input" placeholder="http://localhost:8000" value="">
+
+            <div style="display: flex; gap: 8px; margin-top: 14px;">
+                <button class="btn-primary" style="flex: 1;" onclick="saveApiConfig()">Salvează & Conectează</button>
+                <button class="btn-secondary" onclick="closeApiConfigModal()">Închide</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
