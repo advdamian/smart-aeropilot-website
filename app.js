@@ -234,68 +234,39 @@ async function pollQueueStatus() {
     }
 }
 
-let clientMediaStream = null;
-
 async function changeVideoSource() {
     const sel = document.getElementById('video-source-select');
-    const val = sel.value;
+    const val = sel.value; // 'demo', 'walking', 'uneven', 'webcam'
     const statusPill = document.getElementById('cam-status-pill');
     const imgStream = document.getElementById('admin-live-stream');
-    const clientCamContainer = document.getElementById('client-webcam-container');
-    const clientCamVideo = document.getElementById('client-webcam-video');
 
-    // 1. Stop any running client-side camera
-    if (clientMediaStream) {
-        clientMediaStream.getTracks().forEach(track => track.stop());
-        clientMediaStream = null;
+    if (statusPill) {
+        statusPill.innerText = (val === 'webcam') ? "⏳ Conectare la cameră server..." : "⏳ Se încarcă clipul...";
+        statusPill.style.color = "#d97706";
     }
 
-    if (val === 'client_webcam') {
-        if (imgStream) imgStream.style.display = 'none';
-        if (clientCamContainer) clientCamContainer.style.display = 'block';
-        if (statusPill) statusPill.innerText = "⏳ Se inițializează camera...";
-
-        try {
-            clientMediaStream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
-                audio: false
-            });
-            if (clientCamVideo) {
-                clientCamVideo.srcObject = clientMediaStream;
-                clientCamVideo.play();
-            }
-            if (statusPill) {
-                statusPill.innerText = "● Cameră Locală Activă";
-                statusPill.style.color = "#16a34a";
-            }
-        } catch (err) {
-            console.error("Client webcam error:", err);
-            alert("Nu s-a putut deschide camera locală a dispozitivului. Verifică permisiunile camerei în browser.");
-            sel.value = "demo";
-            changeVideoSource();
+    try {
+        await apiFetch(`/api/queue/source?source_type=${val}&camera_id=0`, { method: 'POST' });
+        if (imgStream) {
+            imgStream.src = `${API_BASE}/api/queue/stream?role=admin&ngrok-skip-browser-warning=true&t=${Date.now()}`;
         }
-    } else {
-        if (clientCamContainer) clientCamContainer.style.display = 'none';
-        if (imgStream) imgStream.style.display = 'block';
-
-        const srcType = (val === 'server_webcam') ? 'webcam' : 'demo';
-        if (statusPill) statusPill.innerText = (srcType === 'webcam') ? "⏳ Conectare la cameră server..." : "● Redare clip...";
-
-        try {
-            await apiFetch(`/api/queue/source?source_type=${srcType}&camera_id=0`, { method: 'POST' });
-            if (imgStream) {
-                imgStream.src = `${API_BASE}/api/queue/stream?role=admin&ngrok-skip-browser-warning=true&t=${Date.now()}`;
+        if (statusPill) {
+            if (val === 'webcam') {
+                statusPill.innerText = "● Cameră Server OpenCV Activă";
+            } else if (val === 'walking') {
+                statusPill.innerText = "● Clip Flux Continuu Activ";
+            } else if (val === 'uneven') {
+                statusPill.innerText = "● Clip Aglomerare Activ";
+            } else {
+                statusPill.innerText = "● Clip Standard Activ";
             }
-            if (statusPill) {
-                statusPill.innerText = (srcType === 'webcam') ? "● Cameră Server OpenCV Activă" : "● Clip Demonstrativ Activ";
-                statusPill.style.color = "#16a34a";
-            }
-        } catch (e) {
-            console.error(e);
-            if (statusPill) {
-                statusPill.innerText = "● Mod Simulare";
-                statusPill.style.color = "#d97706";
-            }
+            statusPill.style.color = "#16a34a";
+        }
+    } catch (e) {
+        console.error("Change video source error:", e);
+        if (statusPill) {
+            statusPill.innerText = "● Eroare comutare sursă";
+            statusPill.style.color = "#ef4444";
         }
     }
 }

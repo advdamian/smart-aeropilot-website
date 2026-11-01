@@ -121,19 +121,13 @@
                     <h2>Camere CCTV Securitate — Detecție YOLOv8 + IR Simulat</h2>
                     <!-- Server Stream -->
                     <img id="admin-live-stream" class="video-frame" src="/api/queue/stream?role=admin" alt="Flux CCTV Securitate">
-                    <!-- Client Webcam Video Preview (for Browser / Phone access) -->
-                    <div id="client-webcam-container" style="display: none; position: relative;">
-                        <video id="client-webcam-video" class="video-frame" autoplay playsinline muted></video>
-                        <div style="position: absolute; top: 10px; left: 10px; background: rgba(15, 23, 42, 0.85); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px;">
-                            🔴 Cameră Dispozitiv Conectată | Detecție YOLOv8
-                        </div>
-                    </div>
 
                     <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                        <select id="video-source-select" style="max-width: 280px;" onchange="changeVideoSource()">
-                            <option value="demo">📹 Clip Demonstrativ Securitate (WebM)</option>
-                            <option value="server_webcam">💻 Cameră Web Server (Mac / OpenCV AI)</option>
-                            <option value="client_webcam">📱 Cameră Web Locală (Dispozitiv curent / Mobil)</option>
+                        <select id="video-source-select" style="max-width: 320px;" onchange="changeVideoSource()">
+                            <option value="demo">📹 Clip 1: Coadă Standard (WebM)</option>
+                            <option value="walking">📹 Clip 2: Flux Continuu Pietonal (MP4)</option>
+                            <option value="uneven">📹 Clip 3: Aglomerare & Benzi Inegale (MP4)</option>
+                            <option value="webcam">💻 Cameră Web Server (Mac / OpenCV AI)</option>
                         </select>
                         <span id="cam-status-pill" style="font-size: 12px; color: #16a34a; font-weight: 600;">● Flux activ</span>
                     </div>
