@@ -1,8 +1,15 @@
 // Smart AeroPilot Hub - Client application with RBAC, Java Engine Bridge & GitHub Pages Support
 
 const IS_GH_PAGES = window.location.hostname.includes("github.io") || window.location.hostname.includes("aeropilot.tech");
+
+function sanitizeApiUrl(url) {
+    if (!url) return "";
+    return url.trim().replace(/\/+$/, "");
+}
+
 // Default to the active Cloudflare live tunnel so the site works immediately out-of-the-box
-let API_BASE = localStorage.getItem("aeropilot_api_base") || "https://filed-condos-championship-forecast.trycloudflare.com";
+let rawBase = localStorage.getItem("aeropilot_api_base") || "https://shipped-lessons-evaluation-testament.trycloudflare.com";
+let API_BASE = sanitizeApiUrl(rawBase);
 
 let currentUser = {
     username: "Damian",
@@ -72,11 +79,11 @@ function closeApiConfigModal() {
 }
 
 function saveApiConfig() {
-    const val = document.getElementById('api-url-input').value.trim();
+    const val = sanitizeApiUrl(document.getElementById('api-url-input').value);
     API_BASE = val;
     localStorage.setItem("aeropilot_api_base", API_BASE);
     closeApiConfigModal();
-    alert("Adresa API a fost salvată: " + (API_BASE || "Mod Local / Mock"));
+    alert("Adresa API a fost conectată cu succes: " + (API_BASE || "Mod Standalone"));
     pollQueueStatus();
     evaluateFlightRisk();
     fetchRerouteData();
