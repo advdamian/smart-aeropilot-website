@@ -16,7 +16,7 @@
                 Sistem integrat de securitate, analiză meteo & re-rutare automată (Java Dijkstra Engine)
             </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <div class="header-controls">
             <div class="user-badge" id="user-display">
                 <span id="role-tag" class="role-tag-passenger">PASAGER</span>
                 <span id="user-name-display" style="font-weight: 600;">Damian</span>
@@ -101,24 +101,15 @@
         <!-- Passenger View: ONLY recommendation, NO CCTV footage -->
         <div id="passenger-queue-view" style="display: block;">
             <div class="card" style="border-left: 4px solid #16a34a;">
-                <h2>Recomandarea Ta de Acces Rapid la Securitate</h2>
-                <p style="font-size: 14px; color: #334155; margin-bottom: 16px;">
-                    Sistemul inteligent al aeroportului analizează în timp real încărcătura la porțile de scanare și îți indică cea mai rapidă bandă pentru a evita întârzierile.
+                <h2>Acces Rapid la Controlul de Securitate</h2>
+                <p style="font-size: 13px; color: #475569; margin-bottom: 16px;">
+                    Camerele inteligente monitorizează fluxul de călători și identifică în timp real banda cu cel mai mic timp de așteptare.
                 </p>
-                <div class="grid-2">
-                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 20px; border-radius: 8px; text-align: center;">
-                        <span style="font-size: 13px; font-weight: 700; color: #15803d; text-transform: uppercase;">BANDA RECOMANDATĂ</span>
-                        <div id="passenger-fastest-lane" class="metric-big" style="font-size: 38px; color: #16a34a; margin: 8px 0;">Banda 1</div>
-                        <div id="passenger-wait-time" style="font-size: 16px; font-weight: 600; color: #1e293b;">Timp estimat: ~5 min</div>
-                        <div id="passenger-lane-status" style="font-size: 13px; color: #15803d; margin-top: 4px;">Flux continuu și timp redus de așteptare</div>
-                    </div>
-                    <div class="restricted-banner">
-                        <div style="font-size: 24px; margin-bottom: 8px;">🔒</div>
-                        <strong style="display: block; margin-bottom: 6px;">Flux Video Securizat (Confidențial)</strong>
-                        <p style="font-size: 12px; line-height: 1.4;">
-                            Conform politicilor de securitate ale aeroportului, imaginile camerelor CCTV și senzorii de scanare sunt accesibile exclusiv personalului de securitate și dispeceratului aeroportuar.
-                        </p>
-                    </div>
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 24px 16px; border-radius: 8px; text-align: center; max-width: 480px; margin: 0 auto;">
+                    <span style="font-size: 11px; font-weight: 700; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px;">BANDA RECOMANDATĂ PENTRU TINE</span>
+                    <div id="passenger-fastest-lane" class="metric-big" style="font-size: 40px; color: #16a34a; margin: 8px 0;">Banda 1</div>
+                    <div id="passenger-wait-time" style="font-size: 17px; font-weight: 700; color: #0f172a;">Timp estimat: ~5 min</div>
+                    <div id="passenger-lane-status" style="font-size: 13px; color: #15803d; margin-top: 6px;">Mergi la Banda 1 pentru cel mai rapid control de securitate.</div>
                 </div>
             </div>
         </div>

@@ -2,7 +2,7 @@
 
 const IS_GH_PAGES = window.location.hostname.includes("github.io") || window.location.hostname.includes("aeropilot.tech");
 // Default to the active Cloudflare live tunnel so the site works immediately out-of-the-box
-let API_BASE = localStorage.getItem("aeropilot_api_base") || "https://injection-interior-ship-generates.trycloudflare.com";
+let API_BASE = localStorage.getItem("aeropilot_api_base") || "https://filed-condos-championship-forecast.trycloudflare.com";
 
 let currentUser = {
     username: "Damian",
