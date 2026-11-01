@@ -193,8 +193,8 @@
                     </div>
                 </div>
 
-                <div style="margin-top: 16px;">
-                    <label style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px;">Simulare Criză Meteo:</label>
+                <div class="admin-only" id="weather-sim-admin-box" style="margin-top: 16px; display: none;">
+                    <label style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px;">Simulare Criză Meteo (Panou Dispecer / Admin):</label>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                         <button id="btn-weather-normal" class="btn-weather-toggle active-weather" style="flex: 1; min-width: 120px;" onclick="setWeatherCrisis('normal')">☀️ Meteo Normal</button>
                         <button id="btn-weather-fog" class="btn-weather-toggle" style="flex: 1; min-width: 120px;" onclick="setWeatherCrisis('fog')">🌫️ Ceață Densă (CAT III)</button>
@@ -223,8 +223,8 @@
                     <!-- Factors injected via JS -->
                 </ul>
 
-                <button id="btn-trigger-reroute" class="btn-danger" style="width: 100%; display: none;" onclick="goToRerouteTab()">
-                    ⚠️ Deschide Modulul de Re-rutare & Voucher →
+                <button id="btn-trigger-reroute" class="btn-danger" style="width: 100%; display: none; margin-top: 14px; font-weight: 700; font-size: 14px; padding: 12px;" onclick="goToRerouteTab()">
+                    ⚠️ Risc de Anulare Ridicat (&gt;50%) — Deschide Opțiuni Re-booking ➔
                 </button>
             </div>
         </div>
@@ -235,6 +235,17 @@
         <div class="grid-2">
             <div class="card">
                 <h2>Rute Alternative Disponibile (Re-booking Imediat)</h2>
+
+                <!-- Sort Control Buttons -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; background: #f8fafc; padding: 10px 12px; border-radius: 6px; border: 1px solid #e2e8f0; flex-wrap: wrap; gap: 8px;">
+                    <span style="font-size: 12px; font-weight: 600; color: #475569;">Sortează opțiunile:</span>
+                    <div style="display: flex; gap: 6px;">
+                        <button id="btn-sort-price" class="btn-secondary" style="font-size: 12px; padding: 5px 10px;" onclick="sortRerouteOptions('price')">💰 Preț</button>
+                        <button id="btn-sort-time" class="btn-secondary" style="font-size: 12px; padding: 5px 10px;" onclick="sortRerouteOptions('time')">⏱️ Durată Zbor</button>
+                        <button id="btn-sort-risk" class="btn-secondary active-sort" style="font-size: 12px; padding: 5px 10px;" onclick="sortRerouteOptions('risk')">🛡️ Risc Minim</button>
+                    </div>
+                </div>
+
                 <div id="routes-container">
                     <!-- Populated dynamically via JS with Buy / Rebook Button -->
                 </div>

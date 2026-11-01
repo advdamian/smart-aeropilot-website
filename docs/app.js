@@ -439,9 +439,12 @@ async function evaluateFlightRisk() {
     const sel = document.getElementById('flight-select');
     if (sel && sel.value) currentFlightCode = sel.value;
 
+    const activeFlight = allAvailableFlights.find(f => f.code === currentFlightCode) || { origin: "OTP", destination: "LHR" };
+
     const payload = {
         flight_number: currentFlightCode,
-        origin: "OTP"
+        origin: activeFlight.origin || "OTP",
+        destination: activeFlight.destination || "LHR"
     };
 
     if (weatherOverride === 'fog') {
@@ -460,7 +463,10 @@ async function evaluateFlightRisk() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        if (data) renderFlightRisk(data);
+        if (data) {
+            renderFlightRisk(data);
+            fetchRerouteData(data.origin, data.destination);
+        }
     } catch (e) {
         console.error("Error evaluating risk:", e);
     }
@@ -511,9 +517,16 @@ function renderFlightRisk(data) {
         factorsUl.innerHTML = data.risk_factors.map(f => `<li>${f}</li>`).join('');
     }
 
+    // Show re-booking button when cancellation probability or risk score is over 50%
     const rerouteBtn = document.getElementById('btn-trigger-reroute');
     if (rerouteBtn) {
-        rerouteBtn.style.display = data.can_trigger_reroute ? 'block' : 'none';
+        const isHighRisk = (data.risk_score >= 50) || (data.cancellation_probability >= 0.50) || data.can_trigger_reroute;
+        if (isHighRisk) {
+            rerouteBtn.style.display = 'block';
+            rerouteBtn.innerText = `⚠️ Risc Ridicat (${data.risk_score}%) — Găsește Zboruri Alternative către ${data.destination} ➔`;
+        } else {
+            rerouteBtn.style.display = 'none';
+        }
     }
 }
 
@@ -535,22 +548,55 @@ function setWeatherCrisis(type) {
     }
 
     evaluateFlightRisk();
-    fetchRerouteData();
 }
 
-// ----------------- FEATURE 3: RE-ROUTING, BUY / BOOKING & EU261 -----------------
+// ----------------- FEATURE 3: RE-ROUTING, SORTING, BUY & EU261 -----------------
 
 let latestRerouteData = null;
+let currentRerouteSort = 'risk'; // 'price' | 'time' | 'risk'
 
-async function fetchRerouteData() {
+function goToRerouteTab() {
+    switchTab('tab-reroute');
+    const activeFlight = allAvailableFlights.find(f => f.code === currentFlightCode);
+    if (activeFlight) {
+        fetchRerouteData(activeFlight.origin, activeFlight.destination);
+    } else {
+        fetchRerouteData();
+    }
+}
+
+function sortRerouteOptions(criteria) {
+    currentRerouteSort = criteria;
+    document.querySelectorAll('[id^="btn-sort-"]').forEach(b => b.classList.remove('active-sort'));
+    const activeBtn = document.getElementById(`btn-sort-${criteria}`);
+    if (activeBtn) activeBtn.classList.add('active-sort');
+
+    if (!latestRerouteData || !latestRerouteData.routes) return;
+
+    if (criteria === 'price') {
+        latestRerouteData.routes.sort((a, b) => a.price_eur - b.price_eur);
+    } else if (criteria === 'time') {
+        latestRerouteData.routes.sort((a, b) => a.total_duration_minutes - b.total_duration_minutes);
+    } else if (criteria === 'risk') {
+        latestRerouteData.routes.sort((a, b) => a.risk_score - b.risk_score);
+    }
+
+    renderReroute(latestRerouteData, false);
+}
+
+async function fetchRerouteData(orig = null, dest = null) {
+    const activeFlight = allAvailableFlights.find(f => f.code === currentFlightCode);
+    const originAirport = orig || (activeFlight ? activeFlight.origin : "OTP");
+    const destAirport = dest || (activeFlight ? activeFlight.destination : "LHR");
+
     try {
         const data = await apiFetch('/api/flight/reroute', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 original_flight: currentFlightCode,
-                origin: "OTP",
-                destination: "LHR",
+                origin: originAirport,
+                destination: destAirport,
                 passenger_name: currentUser.name
             })
         });
@@ -560,14 +606,27 @@ async function fetchRerouteData() {
     }
 }
 
-function renderReroute(data) {
+function renderReroute(data, applySort = true) {
     latestRerouteData = data;
+    if (applySort && currentRerouteSort && latestRerouteData && latestRerouteData.routes) {
+        if (currentRerouteSort === 'price') {
+            latestRerouteData.routes.sort((a, b) => a.price_eur - b.price_eur);
+        } else if (currentRerouteSort === 'time') {
+            latestRerouteData.routes.sort((a, b) => a.total_duration_minutes - b.total_duration_minutes);
+        } else if (currentRerouteSort === 'risk') {
+            latestRerouteData.routes.sort((a, b) => a.risk_score - b.risk_score);
+        }
+    }
+
     const container = document.getElementById('routes-container');
     const paxDisp = document.getElementById('reroute-passenger-display');
     const fltDisp = document.getElementById('reroute-flight-display');
 
+    const activeFlight = allAvailableFlights.find(f => f.code === currentFlightCode);
+    const destName = activeFlight ? activeFlight.destination : "destinație";
+
     if (paxDisp) paxDisp.innerText = currentUser.name || "Damian Dabija";
-    if (fltDisp) fltDisp.innerText = `${currentFlightCode} (${data.original_flight || currentFlightCode})`;
+    if (fltDisp) fltDisp.innerText = `${currentFlightCode} (${activeFlight ? `${activeFlight.origin} → ${activeFlight.destination}` : currentFlightCode})`;
 
     if (!container || !data || !data.routes) return;
 
@@ -587,7 +646,7 @@ function renderReroute(data) {
                         <strong>${r.recommended ? '⭐ RECOMANDAT — ' : ''}Opțiunea ${r.id}</strong>
                         ${layoverBadge}
                     </div>
-                    <span style="color: #2563eb; font-weight: 700; font-size: 14px;">€${r.price_eur} (Acoperit Integral)</span>
+                    <span style="color: #2563eb; font-weight: 700; font-size: 15px;">€${r.price_eur} (0 € Rebooking)</span>
                 </div>
                 <div class="route-timeline" style="margin-bottom: 8px; font-size: 13px; line-height: 1.5;">
                     ${segmentsHtml}
@@ -598,7 +657,7 @@ function renderReroute(data) {
                     <span>Risc: <strong>${r.risk_score}%</strong></span>
                 </div>
                 <button class="btn-primary" style="width: 100%; font-size: 13px; padding: 9px;" onclick="openBoardingPassModal('${r.id}')">
-                    ✈️ Selectează & Rezervă Bilet Gratuit (0 € Rebooking)
+                    ✈️ Selectează & Rezervă Bilet către ${destName} (0 €)
                 </button>
             </div>
         `;
