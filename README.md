@@ -3,6 +3,7 @@
 **Proiect dezvoltat în cadrul Craiova Hackathon (Airport & Smart Mobility Edition)**  
 🌐 **Live Web Hub:** [https://aeropilot.tech](https://aeropilot.tech)
 
+** backend link: ** https://github.com/advdamian/smart-aeropilot-backend
 ---
 
 ## 📌 1. Problema Abordată
