@@ -1,7 +1,8 @@
 // Smart AeroPilot Hub - Client application with RBAC, Java Engine Bridge & GitHub Pages Support
 
-const IS_GH_PAGES = window.location.hostname.includes("github.io");
-let API_BASE = localStorage.getItem("aeropilot_api_base") || (IS_GH_PAGES ? "" : "");
+const IS_GH_PAGES = window.location.hostname.includes("github.io") || window.location.hostname.includes("aeropilot.tech");
+// Default to the active Cloudflare live tunnel so the site works immediately out-of-the-box
+let API_BASE = localStorage.getItem("aeropilot_api_base") || "https://injection-interior-ship-generates.trycloudflare.com";
 
 let currentUser = {
     username: "Damian",
@@ -17,6 +18,11 @@ let weatherOverride = null;
 async function apiFetch(endpoint, options = {}) {
     const url = `${API_BASE}${endpoint}`;
     try {
+        const headers = options.headers ? { ...options.headers } : {};
+        // Bypass ngrok browser interstitial warning screen for API JSON calls
+        headers['ngrok-skip-browser-warning'] = 'true';
+        options.headers = headers;
+
         const res = await fetch(url, options);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();
@@ -38,6 +44,9 @@ function initAuth() {
         }
     }
     applyUserRole(currentUser.role, currentUser.name);
+
+    const swLink = document.getElementById('swagger-link');
+    if (swLink) swLink.href = `${API_BASE}/docs`;
 
     if (IS_GH_PAGES && !API_BASE) {
         const banner = document.getElementById('gh-pages-banner');
@@ -123,7 +132,7 @@ function applyUserRole(role, name) {
             adminView.style.display = 'block';
             const streamImg = document.getElementById('admin-live-stream');
             if (streamImg && !streamImg.src.includes("stream")) {
-                streamImg.src = `${API_BASE}/api/queue/stream?role=admin`;
+                streamImg.src = `${API_BASE}/api/queue/stream?role=admin&ngrok-skip-browser-warning=true`;
             }
         } else {
             passView.style.display = 'block';
@@ -224,7 +233,7 @@ async function changeVideoSource() {
     try {
         await apiFetch(`/api/queue/source?source_type=${val}`, { method: 'POST' });
         const img = document.getElementById('admin-live-stream');
-        if (img) img.src = `${API_BASE}/api/queue/stream?role=admin&t=${Date.now()}`;
+        if (img) img.src = `${API_BASE}/api/queue/stream?role=admin&ngrok-skip-browser-warning=true&t=${Date.now()}`;
     } catch (e) {
         console.error(e);
     }
@@ -333,7 +342,7 @@ async function fetchRerouteData() {
 
 function renderReroute(data) {
     const container = document.getElementById('routes-container');
-    if (!container) return;
+    if (!container || !data || !data.routes) return;
 
     container.innerHTML = data.routes.map(r => {
         const segmentsHtml = r.segments.map(s => `
@@ -392,6 +401,11 @@ async function executeJavaCancel() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ flightId: flightId })
         });
+
+        if (!data || !data.results || !data.cancelled) {
+            summary.innerText = "Nu s-au putut prelua datele de la motorul Java. Verificați conexiunea la backend.";
+            return;
+        }
 
         summary.innerText = `Zborul ${data.cancelled.id} (${data.cancelled.from} → ${data.cancelled.to}) a fost anulat. Motorul Java a re-rutat ${data.results.length} pasageri afectați conform priorităților:`;
 
