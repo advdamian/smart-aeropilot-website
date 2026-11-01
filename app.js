@@ -234,23 +234,210 @@ async function pollQueueStatus() {
     }
 }
 
+let clientMediaStream = null;
+
 async function changeVideoSource() {
     const sel = document.getElementById('video-source-select');
     const val = sel.value;
-    try {
-        await apiFetch(`/api/queue/source?source_type=${val}`, { method: 'POST' });
-        const img = document.getElementById('admin-live-stream');
-        if (img) img.src = `${API_BASE}/api/queue/stream?role=admin&ngrok-skip-browser-warning=true&t=${Date.now()}`;
-    } catch (e) {
-        console.error(e);
+    const statusPill = document.getElementById('cam-status-pill');
+    const imgStream = document.getElementById('admin-live-stream');
+    const clientCamContainer = document.getElementById('client-webcam-container');
+    const clientCamVideo = document.getElementById('client-webcam-video');
+
+    // 1. Stop any running client-side camera
+    if (clientMediaStream) {
+        clientMediaStream.getTracks().forEach(track => track.stop());
+        clientMediaStream = null;
+    }
+
+    if (val === 'client_webcam') {
+        if (imgStream) imgStream.style.display = 'none';
+        if (clientCamContainer) clientCamContainer.style.display = 'block';
+        if (statusPill) statusPill.innerText = "⏳ Se inițializează camera...";
+
+        try {
+            clientMediaStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+                audio: false
+            });
+            if (clientCamVideo) {
+                clientCamVideo.srcObject = clientMediaStream;
+                clientCamVideo.play();
+            }
+            if (statusPill) {
+                statusPill.innerText = "● Cameră Locală Activă";
+                statusPill.style.color = "#16a34a";
+            }
+        } catch (err) {
+            console.error("Client webcam error:", err);
+            alert("Nu s-a putut deschide camera locală a dispozitivului. Verifică permisiunile camerei în browser.");
+            sel.value = "demo";
+            changeVideoSource();
+        }
+    } else {
+        if (clientCamContainer) clientCamContainer.style.display = 'none';
+        if (imgStream) imgStream.style.display = 'block';
+
+        const srcType = (val === 'server_webcam') ? 'webcam' : 'demo';
+        if (statusPill) statusPill.innerText = (srcType === 'webcam') ? "⏳ Conectare la cameră server..." : "● Redare clip...";
+
+        try {
+            await apiFetch(`/api/queue/source?source_type=${srcType}&camera_id=0`, { method: 'POST' });
+            if (imgStream) {
+                imgStream.src = `${API_BASE}/api/queue/stream?role=admin&ngrok-skip-browser-warning=true&t=${Date.now()}`;
+            }
+            if (statusPill) {
+                statusPill.innerText = (srcType === 'webcam') ? "● Cameră Server OpenCV Activă" : "● Clip Demonstrativ Activ";
+                statusPill.style.color = "#16a34a";
+            }
+        } catch (e) {
+            console.error(e);
+            if (statusPill) {
+                statusPill.innerText = "● Mod Simulare";
+                statusPill.style.color = "#d97706";
+            }
+        }
     }
 }
 
-// ----------------- FEATURE 2: FLIGHT RISK & WEATHER -----------------
+// ----------------- FEATURE 2: FLIGHT RISK, SEARCH & WEATHER -----------------
+
+let allAvailableFlights = [
+    { code: "RO301", origin: "OTP", destination: "LHR", departure: "18:45", aircraft: "Boeing 737-800", airline: "TAROM" },
+    { code: "W43105", origin: "OTP", destination: "CDG", departure: "19:30", aircraft: "Airbus A321neo", airline: "Wizz Air" },
+    { code: "LH1412", origin: "OTP", destination: "FRA", departure: "17:15", aircraft: "Airbus A320", airline: "Lufthansa" },
+    { code: "OS784", origin: "OTP", destination: "VIE", departure: "16:40", aircraft: "Embraer 195", airline: "Austrian Airlines" },
+    { code: "KL1374", origin: "OTP", destination: "AMS", departure: "19:00", aircraft: "Boeing 737-900", airline: "KLM" },
+    { code: "LH1655", origin: "OTP", destination: "MUC", departure: "20:10", aircraft: "Airbus A319", airline: "Lufthansa" },
+    { code: "BA887", origin: "OTP", destination: "LHR", departure: "20:30", aircraft: "Airbus A320neo", airline: "British Airways" },
+    { code: "FR1008", origin: "OTP", destination: "STN", departure: "21:40", aircraft: "Boeing 737-8200", airline: "Ryanair" },
+    { code: "AP100", origin: "CRA", destination: "OTP", departure: "06:00", aircraft: "ATR 72-600", airline: "TAROM" },
+    { code: "AP101", origin: "CRA", destination: "MUC", departure: "07:00", aircraft: "Airbus A319", airline: "Lufthansa" },
+    { code: "AP102", origin: "CRA", destination: "FCO", departure: "09:30", aircraft: "Airbus A320", airline: "Wizz Air" },
+    { code: "W43751", origin: "CRA", destination: "LTN", departure: "13:45", aircraft: "Airbus A321", airline: "Wizz Air" },
+    { code: "W43755", origin: "CRA", destination: "BGY", departure: "15:20", aircraft: "Airbus A320", airline: "Wizz Air" },
+    { code: "W43761", origin: "CRA", destination: "BLQ", departure: "18:10", aircraft: "Airbus A320", airline: "Wizz Air" },
+    { code: "AP103", origin: "OTP", destination: "CDG", departure: "07:00", aircraft: "Airbus A320", airline: "TAROM" },
+    { code: "AP104", origin: "OTP", destination: "AMS", departure: "08:00", aircraft: "Boeing 737-800", airline: "TAROM" },
+    { code: "AP105", origin: "OTP", destination: "VIE", departure: "07:20", aircraft: "ATR 72-600", airline: "TAROM" },
+    { code: "AP106", origin: "OTP", destination: "FRA", departure: "10:00", aircraft: "Airbus A320", airline: "TAROM" },
+    { code: "AP107", origin: "OTP", destination: "FCO", departure: "11:00", aircraft: "Airbus A320", airline: "TAROM" },
+    { code: "AP108", origin: "OTP", destination: "LHR", departure: "13:00", aircraft: "Boeing 737-800", airline: "TAROM" }
+];
+
+async function loadAllFlights() {
+    try {
+        const data = await apiFetch('/api/flight/list');
+        if (Array.isArray(data) && data.length > 0) {
+            allAvailableFlights = data;
+        }
+    } catch (e) {
+        console.warn("Could not load flight list, using presets:", e);
+    }
+    populateFlightDropdowns();
+}
+
+function populateFlightDropdowns() {
+    const selRisk = document.getElementById('flight-select');
+    const selJava = document.getElementById('java-flight-select');
+    
+    if (selRisk) {
+        selRisk.innerHTML = allAvailableFlights.map(f => `
+            <option value="${f.code}" ${f.code === currentFlightCode ? 'selected' : ''}>
+                ${f.code} — ${f.origin} ➔ ${f.destination} (${f.airline || 'TAROM'} @ ${f.departure || '18:00'})
+            </option>
+        `).join('');
+    }
+
+    if (selJava) {
+        selJava.innerHTML = allAvailableFlights.map(f => `
+            <option value="${f.code}" ${f.code === currentFlightCode ? 'selected' : ''}>
+                ${f.code} — ${f.origin} ➔ ${f.destination} (${f.airline || 'TAROM'} @ ${f.departure || '18:00'})
+            </option>
+        `).join('');
+    }
+}
+
+function handleFlightSearchInput() {
+    const inp = document.getElementById('flight-search-input');
+    const dropdown = document.getElementById('flight-search-dropdown');
+    if (!inp || !dropdown) return;
+    
+    const query = inp.value.trim().toLowerCase();
+    if (!query) {
+        dropdown.style.display = 'none';
+        return;
+    }
+
+    const matches = allAvailableFlights.filter(f => {
+        const text = `${f.code} ${f.origin} ${f.destination} ${f.airline || ''} ${f.aircraft || ''}`.toLowerCase();
+        return text.includes(query);
+    });
+
+    if (matches.length === 0) {
+        dropdown.innerHTML = `<div style="padding: 10px; font-size: 12px; color: #64748b; text-align: center;">Niciun zbor găsit pentru "${query}"</div>`;
+        dropdown.style.display = 'block';
+        return;
+    }
+
+    dropdown.innerHTML = matches.slice(0, 8).map(f => `
+        <div class="search-dropdown-item" onclick="selectFlightFromSearch('${f.code}')">
+            <div>
+                <strong>${f.code}</strong> — ${f.origin} ➔ ${f.destination}
+                <div style="font-size: 11px; color: #64748b;">${f.airline || 'Companie'} • Plecare: ${f.departure || '18:30'}</div>
+            </div>
+            <span style="font-size: 11px; color: #0284c7; font-weight: 600;">Selectează ➔</span>
+        </div>
+    `).join('');
+    dropdown.style.display = 'block';
+}
+
+function selectFlightFromSearch(code) {
+    const inp = document.getElementById('flight-search-input');
+    const dropdown = document.getElementById('flight-search-dropdown');
+    const sel = document.getElementById('flight-select');
+    const selJava = document.getElementById('java-flight-select');
+
+    currentFlightCode = code;
+    if (inp) inp.value = code;
+    if (dropdown) dropdown.style.display = 'none';
+    if (sel) sel.value = code;
+    if (selJava) selJava.value = code;
+
+    evaluateFlightRisk();
+    fetchRerouteData();
+}
+
+function clearFlightSearch() {
+    const inp = document.getElementById('flight-search-input');
+    const dropdown = document.getElementById('flight-search-dropdown');
+    if (inp) inp.value = '';
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+// Close search dropdown on click outside
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('flight-search-dropdown');
+    const inp = document.getElementById('flight-search-input');
+    if (dropdown && e.target !== dropdown && e.target !== inp && !dropdown.contains(e.target)) {
+        dropdown.style.display = 'none';
+    }
+});
+
+function onFlightSelectChange() {
+    const sel = document.getElementById('flight-select');
+    if (sel) {
+        currentFlightCode = sel.value;
+        const selJava = document.getElementById('java-flight-select');
+        if (selJava) selJava.value = currentFlightCode;
+    }
+    evaluateFlightRisk();
+    fetchRerouteData();
+}
 
 async function evaluateFlightRisk() {
     const sel = document.getElementById('flight-select');
-    currentFlightCode = sel ? sel.value : "RO301";
+    if (sel && sel.value) currentFlightCode = sel.value;
 
     const payload = {
         flight_number: currentFlightCode,
@@ -290,44 +477,70 @@ function renderFlightRisk(data) {
         oPill.innerText = `${data.risk_level} (${data.risk_score}%)`;
     }
 
-    document.getElementById('meteo-origin-cond').innerText = data.weather_origin.condition;
-    document.getElementById('meteo-origin-details').innerText = 
-        `${data.weather_origin.temp_c}°C | Vânt: ${data.weather_origin.wind_speed_kmh} km/h | Vizib: ${data.weather_origin.visibility_m}m`;
+    const origCond = document.getElementById('meteo-origin-cond');
+    const origDet = document.getElementById('meteo-origin-details');
+    if (origCond) origCond.innerText = data.weather_origin.condition;
+    if (origDet) origDet.innerText = `${data.weather_origin.temp_c}°C | Vânt: ${data.weather_origin.wind_speed_kmh} km/h | Vizib: ${data.weather_origin.visibility_m}m`;
 
-    document.getElementById('meteo-dest-cond').innerText = data.weather_destination.condition;
-    document.getElementById('meteo-dest-details').innerText = 
-        `${data.weather_destination.temp_c}°C | Vânt: ${data.weather_destination.wind_speed_kmh} km/h | Vizib: ${data.weather_destination.visibility_m}m`;
+    const destCond = document.getElementById('meteo-dest-cond');
+    const destDet = document.getElementById('meteo-dest-details');
+    if (destCond) destCond.innerText = data.weather_destination.condition;
+    if (destDet) destDet.innerText = `${data.weather_destination.temp_c}°C | Vânt: ${data.weather_destination.wind_speed_kmh} km/h | Vizib: ${data.weather_destination.visibility_m}m`;
 
     const badge = document.getElementById('risk-score-badge');
-    badge.className = `status-pill pill-${data.risk_level}`;
-    badge.innerText = `${data.risk_level} (${data.risk_score}%)`;
+    if (badge) {
+        badge.className = `status-pill pill-${data.risk_level}`;
+        badge.innerText = `${data.risk_level} (${data.risk_score}%)`;
+    }
 
     const bar = document.getElementById('risk-progress-bar');
-    bar.style.width = `${data.risk_score}%`;
-    bar.className = `risk-fill risk-${data.risk_level}`;
+    if (bar) {
+        bar.style.width = `${data.risk_score}%`;
+        bar.className = `risk-fill risk-${data.risk_level}`;
+    }
 
     const rec = document.getElementById('risk-recommendation');
-    rec.innerText = data.recommendation;
-    rec.style.background = data.risk_score >= 80 ? '#fee2e2' : (data.risk_score >= 50 ? '#fef9c3' : '#dcfce7');
-    rec.style.color = data.risk_score >= 80 ? '#991b1b' : (data.risk_score >= 50 ? '#854d0e' : '#166534');
+    if (rec) {
+        rec.innerText = data.recommendation;
+        rec.style.background = data.risk_score >= 80 ? '#fee2e2' : (data.risk_score >= 50 ? '#fef9c3' : '#dcfce7');
+        rec.style.color = data.risk_score >= 80 ? '#991b1b' : (data.risk_score >= 50 ? '#854d0e' : '#166534');
+    }
 
     const factorsUl = document.getElementById('risk-factors-list');
-    factorsUl.innerHTML = data.risk_factors.map(f => `<li>${f}</li>`).join('');
+    if (factorsUl) {
+        factorsUl.innerHTML = data.risk_factors.map(f => `<li>${f}</li>`).join('');
+    }
 
     const rerouteBtn = document.getElementById('btn-trigger-reroute');
-    if (data.can_trigger_reroute) {
-        rerouteBtn.style.display = 'block';
-    } else {
-        rerouteBtn.style.display = 'none';
+    if (rerouteBtn) {
+        rerouteBtn.style.display = data.can_trigger_reroute ? 'block' : 'none';
     }
 }
 
 function setWeatherCrisis(type) {
-    weatherOverride = type;
+    if (type === 'normal' || !type) {
+        weatherOverride = null;
+    } else {
+        weatherOverride = type;
+    }
+
+    // Update active button styling
+    document.querySelectorAll('.btn-weather-toggle').forEach(b => b.classList.remove('active-weather'));
+    if (!weatherOverride) {
+        const bNorm = document.getElementById('btn-weather-normal');
+        if (bNorm) bNorm.classList.add('active-weather');
+    } else {
+        const bActive = document.getElementById(`btn-weather-${weatherOverride}`);
+        if (bActive) bActive.classList.add('active-weather');
+    }
+
     evaluateFlightRisk();
+    fetchRerouteData();
 }
 
-// ----------------- FEATURE 3: RE-ROUTING & EU261 -----------------
+// ----------------- FEATURE 3: RE-ROUTING, BUY / BOOKING & EU261 -----------------
+
+let latestRerouteData = null;
 
 async function fetchRerouteData() {
     try {
@@ -348,12 +561,19 @@ async function fetchRerouteData() {
 }
 
 function renderReroute(data) {
+    latestRerouteData = data;
     const container = document.getElementById('routes-container');
+    const paxDisp = document.getElementById('reroute-passenger-display');
+    const fltDisp = document.getElementById('reroute-flight-display');
+
+    if (paxDisp) paxDisp.innerText = currentUser.name || "Damian Dabija";
+    if (fltDisp) fltDisp.innerText = `${currentFlightCode} (${data.original_flight || currentFlightCode})`;
+
     if (!container || !data || !data.routes) return;
 
     container.innerHTML = data.routes.map(r => {
         const segmentsHtml = r.segments.map(s => `
-            <div><strong>${s.airline} (${s.flight_number})</strong>: ${s.origin} (${s.departure}) → ${s.destination} (${s.arrival}) [${s.duration_minutes} min]</div>
+            <div><strong>${s.airline} (${s.flight_number})</strong>: ${s.origin} (${s.departure}) ➔ ${s.destination} (${s.arrival}) [${s.duration_minutes} min]</div>
         `).join('');
 
         const layoverBadge = r.layover_airport ? 
@@ -362,39 +582,106 @@ function renderReroute(data) {
 
         return `
             <div class="route-card ${r.recommended ? 'best' : ''}">
-                <div class="route-header">
+                <div class="route-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <div>
-                        <span>${r.recommended ? '⭐ RECOMANDAT — ' : ''}Opțiunea ${r.id}</span>
+                        <strong>${r.recommended ? '⭐ RECOMANDAT — ' : ''}Opțiunea ${r.id}</strong>
                         ${layoverBadge}
                     </div>
-                    <span style="color: #2563eb;">€${r.price_eur}</span>
+                    <span style="color: #2563eb; font-weight: 700; font-size: 14px;">€${r.price_eur} (Acoperit Integral)</span>
                 </div>
-                <div class="route-timeline" style="margin-bottom: 8px;">
+                <div class="route-timeline" style="margin-bottom: 8px; font-size: 13px; line-height: 1.5;">
                     ${segmentsHtml}
                 </div>
-                <div style="font-size: 12px; color: #64748b; display: flex; justify-content: space-between;">
+                <div style="font-size: 12px; color: #64748b; display: flex; justify-content: space-between; margin-bottom: 10px;">
                     <span>Timp total: <strong>${Math.floor(r.total_duration_minutes / 60)}h ${r.total_duration_minutes % 60}m</strong></span>
-                    <span>Locuri disponibile: <strong>${r.available_seats}</strong></span>
+                    <span>Locuri libere: <strong>${r.available_seats}</strong></span>
                     <span>Risc: <strong>${r.risk_score}%</strong></span>
                 </div>
+                <button class="btn-primary" style="width: 100%; font-size: 13px; padding: 9px;" onclick="openBoardingPassModal('${r.id}')">
+                    ✈️ Selectează & Rezervă Bilet Gratuit (0 € Rebooking)
+                </button>
             </div>
         `;
     }).join('');
 
     if (data.compensation_voucher) {
         const v = data.compensation_voucher;
-        document.getElementById('voucher-amount').innerText = `€${v.amount_eur}`;
-        document.getElementById('voucher-regulation').innerText = v.regulation;
-        document.getElementById('voucher-passenger').innerText = currentUser.name;
-        document.getElementById('voucher-reason').innerText = v.reason;
-        document.getElementById('voucher-code').innerText = v.voucher_code;
+        const vAmt = document.getElementById('voucher-amount');
+        const vPax = document.getElementById('voucher-passenger');
+        const vCode = document.getElementById('voucher-code');
+        if (vAmt) vAmt.innerText = `€${v.amount_eur}`;
+        if (vPax) vPax.innerText = currentUser.name || "Damian";
+        if (vCode) vCode.innerText = v.voucher_code;
+    }
+}
+
+function openBoardingPassModal(routeId, customPax = null) {
+    const modal = document.getElementById('boarding-pass-modal');
+    if (!modal) return;
+
+    let route = null;
+    if (latestRerouteData && latestRerouteData.routes) {
+        route = latestRerouteData.routes.find(r => r.id === routeId) || latestRerouteData.routes[0];
+    }
+
+    const firstSeg = (route && route.segments.length > 0) ? route.segments[0] : { flight_number: "LH1412", airline: "Lufthansa", origin: "OTP", destination: "FRA", departure: "20:15", arrival: "22:30" };
+    const lastSeg = (route && route.segments.length > 0) ? route.segments[route.segments.length - 1] : firstSeg;
+
+    const paxName = customPax ? customPax.name : (currentUser.name || "Damian Dabija");
+    const pnr = "AP-" + Math.floor(1000 + Math.random() * 9000) + String.fromCharCode(65 + Math.floor(Math.random() * 26));
+    const randomSeat = (Math.floor(Math.random() * 25) + 3) + ["A", "B", "C", "D", "F"][Math.floor(Math.random() * 5)];
+    const randomGate = "0" + (Math.floor(Math.random() * 9) + 1) + ["A", "B"][Math.floor(Math.random() * 2)];
+
+    document.getElementById('ticket-passenger-name').innerText = paxName;
+    document.getElementById('ticket-pnr-code').innerText = pnr;
+    document.getElementById('ticket-origin-code').innerText = firstSeg.origin;
+    document.getElementById('ticket-origin-city').innerText = (firstSeg.origin === "OTP" || firstSeg.origin === "LROP") ? "București (Otopeni)" : (firstSeg.origin === "CRA" || firstSeg.origin === "LRCV") ? "Craiova" : firstSeg.origin;
+    document.getElementById('ticket-departure-time').innerText = firstSeg.departure;
+
+    document.getElementById('ticket-dest-code').innerText = lastSeg.destination;
+    document.getElementById('ticket-dest-city').innerText = (lastSeg.destination === "LHR" || lastSeg.destination === "EGLL") ? "Londra (Heathrow)" : (lastSeg.destination === "CDG" || lastSeg.destination === "LFPG") ? "Paris (Charles de Gaulle)" : lastSeg.destination;
+    document.getElementById('ticket-arrival-time').innerText = lastSeg.arrival;
+
+    document.getElementById('ticket-flight-number').innerText = firstSeg.flight_number;
+    document.getElementById('ticket-gate').innerText = randomGate;
+    document.getElementById('ticket-seat').innerText = randomSeat;
+    document.getElementById('ticket-status-label').innerText = "0 € Rebook";
+    document.getElementById('ticket-eticket-num').innerText = `E-TKT: 281-${Math.floor(1000000000 + Math.random() * 9000000000)} • PNR: ${pnr}`;
+
+    const alertMsg = document.getElementById('ticket-alert-msg');
+    if (alertMsg) alertMsg.style.display = 'none';
+
+    modal.style.display = 'flex';
+}
+
+function closeBoardingPassModal() {
+    const modal = document.getElementById('boarding-pass-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function downloadTicketPdf() {
+    const alertMsg = document.getElementById('ticket-alert-msg');
+    if (alertMsg) {
+        alertMsg.innerText = "✅ Biletul electronic a fost salvat și descărcat cu succes (PDF)!";
+        alertMsg.style.display = 'block';
+    }
+}
+
+function saveToWallet() {
+    const alertMsg = document.getElementById('ticket-alert-msg');
+    if (alertMsg) {
+        alertMsg.innerText = "📲 Biletul a fost adăugat în Apple Wallet / Google Pay Pass!";
+        alertMsg.style.display = 'block';
     }
 }
 
 // ----------------- FEATURE 4: JAVA REROUTE ENGINE (ADMIN DISPATCH) -----------------
 
+let currentDispatchResults = [];
+
 async function executeJavaCancel() {
-    const flightId = document.getElementById('java-flight-select').value;
+    const sel = document.getElementById('java-flight-select');
+    const flightId = sel ? sel.value : "RO301";
     const card = document.getElementById('java-results-card');
     const summary = document.getElementById('java-summary');
     const tbody = document.getElementById('java-passengers-tbody');
@@ -410,42 +697,56 @@ async function executeJavaCancel() {
         });
 
         if (!data || !data.results || !data.cancelled) {
-            summary.innerText = "Nu s-au putut prelua datele de la motorul Java. Verificați conexiunea la backend.";
+            summary.innerText = "Nu s-au putut prelua datele de la motorul Java. Verificați conexiunea.";
             return;
         }
 
-        summary.innerText = `Zborul ${data.cancelled.id} (${data.cancelled.from} → ${data.cancelled.to}) a fost anulat. Motorul Java a re-rutat ${data.results.length} pasageri afectați conform priorităților:`;
+        currentDispatchResults = data.results;
+        const totalAffected = data.cancelled.total_passengers_affected || data.results.length;
+        const hotelCount = data.results.filter(r => r.status === 'hotel_assigned').length;
+        const reroutedCount = data.results.length - hotelCount;
+        const reroutedPct = Math.round((reroutedCount / data.results.length) * 100);
 
-        tbody.innerHTML = data.results.map(r => {
+        const pTot = document.getElementById('dispatch-total-pax');
+        const pPct = document.getElementById('dispatch-rerouted-pct');
+        const pHtl = document.getElementById('dispatch-hotel-count');
+
+        if (pTot) pTot.innerText = totalAffected;
+        if (pPct) pPct.innerText = `${reroutedPct}% (${reroutedCount})`;
+        if (pHtl) pHtl.innerText = hotelCount;
+
+        summary.innerText = `Zborul ${data.cancelled.id} (${data.cancelled.from} ➔ ${data.cancelled.to}) a fost anulat. Motorul Java / AI a analizat graful și a re-alocat ${data.results.length} pasageri conform priorităților:`;
+
+        tbody.innerHTML = data.results.map((r, idx) => {
             const p = r.passenger;
             const chosen = r.chosen;
-            const v = r.voucher;
+            const isHotel = r.status === 'hotel_assigned';
 
             const itineraryHtml = chosen ? chosen.legs.map(l => 
-                `${l.airline} ${l.id} (${l.from} ${l.depart} → ${l.to} ${l.arrive})`
+                `<strong>${l.airline} ${l.id}</strong> (${l.from} ${l.depart} ➔ ${l.to} ${l.arrive})`
             ).join(' ➔ ') : '<span style="color: #dc2626; font-weight: 700;">Nicio rută viabilă (Locuri epuizate)</span>';
 
-            const situation = `
-                ${p.tight_connection ? '⚠️ Conexiune strânsă<br>' : ''}
-                ${p.family_size > 1 ? '👨‍👩‍👧‍👦 Familie (' + p.family_size + ' pers)<br>' : '1 pasager<br>'}
-                ${p.deadline ? '⏰ Deadline: ' + p.deadline : ''}
-            `;
+            const categoryLabel = p.category || (p.family_size > 1 ? `Familie (${p.family_size} pers)` : (p.tight_connection ? 'Conexiune Strânsă' : 'Standard'));
 
             return `
                 <tr>
                     <td><strong>${p.name}</strong><br><span style="font-size: 11px; color: #64748b;">ID: ${p.id}</span></td>
-                    <td><span style="font-weight: 700; color: #0284c7;">${r.priority.toFixed(1)}</span></td>
-                    <td>${situation}</td>
-                    <td>${itineraryHtml}</td>
+                    <td><span style="font-weight: 700; color: #0284c7;">${(r.priority || 5.0).toFixed(1)}</span></td>
+                    <td><span style="font-size: 12px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${categoryLabel}</span></td>
+                    <td style="font-size: 12px;">
+                        ${itineraryHtml}
+                        ${chosen && chosen.hotel ? `<div style="font-size: 11px; color: #854d0e; margin-top: 3px;">🏨 ${chosen.hotel}</div>` : ''}
+                    </td>
                     <td>${r.delay_minutes !== null ? '+' + Math.floor(r.delay_minutes / 60) + 'h ' + (r.delay_minutes % 60) + 'm' : '--'}</td>
                     <td>
-                        <strong style="color: #16a34a;">€${v.total}</strong><br>
-                        <span style="font-size: 10px; color: #64748b;">${v.code}</span>
+                        <span class="status-pill ${isHotel ? 'pill-HIGH' : 'pill-LOW'}">
+                            ${isHotel ? 'HOTEL + ZBOR MÂINE' : 'RERUTAT CU SUCCES'}
+                        </span>
                     </td>
                     <td>
-                        <span class="status-pill ${r.status === 'rebooked' ? 'pill-LOW' : 'pill-CRITICAL'}">
-                            ${r.status === 'rebooked' ? 'RE-REZERVAT' : 'NEALOCAT'}
-                        </span>
+                        <button class="btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="viewDispatchPassengerTicket(${idx})">
+                            🎫 Vezi Bilet
+                        </button>
                     </td>
                 </tr>
             `;
@@ -455,6 +756,12 @@ async function executeJavaCancel() {
         console.error(e);
         summary.innerText = "Eroare la apelarea motorului Java: " + e.message;
     }
+}
+
+function viewDispatchPassengerTicket(idx) {
+    if (!currentDispatchResults || !currentDispatchResults[idx]) return;
+    const r = currentDispatchResults[idx];
+    openBoardingPassModal('DISPATCH', r.passenger);
 }
 
 // ----------------- PITCH CRISIS DEMO -----------------
@@ -604,6 +911,7 @@ function getMockResponse(endpoint, options) {
 
 window.addEventListener('DOMContentLoaded', () => {
     initAuth();
+    loadAllFlights();
     pollQueueStatus();
     setInterval(pollQueueStatus, 2500);
     evaluateFlightRisk();

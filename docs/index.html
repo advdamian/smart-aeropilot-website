@@ -119,13 +119,23 @@
             <div class="grid-2">
                 <div class="card">
                     <h2>Camere CCTV Securitate — Detecție YOLOv8 + IR Simulat</h2>
+                    <!-- Server Stream -->
                     <img id="admin-live-stream" class="video-frame" src="/api/queue/stream?role=admin" alt="Flux CCTV Securitate">
-                    <div style="margin-top: 10px; display: flex; gap: 8px;">
-                        <select id="video-source-select" style="max-width: 220px;" onchange="changeVideoSource()">
-                            <option value="demo">Clip Demonstrativ (WebM)</option>
-                            <option value="webcam">Camera Web Locală (Webcam 0)</option>
+                    <!-- Client Webcam Video Preview (for Browser / Phone access) -->
+                    <div id="client-webcam-container" style="display: none; position: relative;">
+                        <video id="client-webcam-video" class="video-frame" autoplay playsinline muted></video>
+                        <div style="position: absolute; top: 10px; left: 10px; background: rgba(15, 23, 42, 0.85); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px;">
+                            🔴 Cameră Dispozitiv Conectată | Detecție YOLOv8
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <select id="video-source-select" style="max-width: 280px;" onchange="changeVideoSource()">
+                            <option value="demo">📹 Clip Demonstrativ Securitate (WebM)</option>
+                            <option value="server_webcam">💻 Cameră Web Server (Mac / OpenCV AI)</option>
+                            <option value="client_webcam">📱 Cameră Web Locală (Dispozitiv curent / Mobil)</option>
                         </select>
-                        <span style="font-size: 12px; color: #64748b; align-self: center;">CPU ONNX Inference Activ</span>
+                        <span id="cam-status-pill" style="font-size: 12px; color: #16a34a; font-weight: 600;">● Flux activ</span>
                     </div>
                 </div>
 
@@ -150,19 +160,29 @@
         <div class="grid-2">
             <div class="card">
                 <h2>Selecție Zbor & Condiții Meteo</h2>
-                <label for="flight-select">Alege Zborul:</label>
-                <select id="flight-select" onchange="evaluateFlightRisk()">
-                    <option value="RO301">RO301 — București (OTP) → Londra Heathrow (LHR)</option>
-                    <option value="AP103">AP103 (Java) — Henri Coandă (LROP) → Paris CDG (LFPG)</option>
-                    <option value="LH1655">LH1655 — București (OTP) → München (MUC)</option>
-                    <option value="W43105">W43105 — București (OTP) → Paris Beauvais (CDG)</option>
-                    <option value="LH1412">LH1412 — București (OTP) → Frankfurt (FRA)</option>
-                    <option value="OS784">OS784 — București (OTP) → Viena (VIE)</option>
+
+                <!-- Live Search Bar for All Flights -->
+                <div style="position: relative; margin-bottom: 12px;">
+                    <label for="flight-search-input" style="font-weight: 600; font-size: 13px; margin-bottom: 4px; display: block;">
+                        Căutare Zbor în Rețeaua Europeană (AeroDataBox):
+                    </label>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" id="flight-search-input" placeholder="🔍 Introdu cod zbor, oraș sau aeroport (ex: RO301, Craiova, LHR, AP103)..." 
+                               style="flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;" 
+                               oninput="handleFlightSearchInput()" onfocus="handleFlightSearchInput()">
+                        <button class="btn-secondary" style="padding: 8px 12px;" onclick="clearFlightSearch()">✕</button>
+                    </div>
+                    <div id="flight-search-dropdown" class="search-dropdown-menu" style="display: none;"></div>
+                </div>
+
+                <label for="flight-select">Sau alege direct din listă:</label>
+                <select id="flight-select" onchange="onFlightSelectChange()">
+                    <!-- Populated dynamically via JS with all flights -->
                 </select>
 
                 <div class="grid-2" style="margin-top: 14px;">
                     <div style="background: #f8fafc; padding: 12px; border-radius: 6px;">
-                        <h4 style="font-size: 12px; color: #64748b;">METEO PLECARE (OTP)</h4>
+                        <h4 style="font-size: 12px; color: #64748b;">METEO PLECARE</h4>
                         <div id="meteo-origin-cond" style="font-weight: 700; font-size: 15px;">--</div>
                         <div id="meteo-origin-details" style="font-size: 12px; color: #475569;">--</div>
                     </div>
@@ -173,12 +193,12 @@
                     </div>
                 </div>
 
-                <div class="admin-only" style="margin-top: 16px; display: none;">
-                    <label>Simulare Meteo (Exclusiv Admin):</label>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn-primary" style="flex: 1;" onclick="setWeatherCrisis('fog')">Ceață Densă</button>
-                        <button class="btn-primary" style="flex: 1;" onclick="setWeatherCrisis('storm')">Furtună</button>
-                        <button class="btn-secondary" style="flex: 1;" onclick="evaluateFlightRisk()">Meteo Normal</button>
+                <div style="margin-top: 16px;">
+                    <label style="font-weight: 600; font-size: 13px; display: block; margin-bottom: 6px;">Simulare Criză Meteo:</label>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button id="btn-weather-normal" class="btn-weather-toggle active-weather" style="flex: 1; min-width: 120px;" onclick="setWeatherCrisis('normal')">☀️ Meteo Normal</button>
+                        <button id="btn-weather-fog" class="btn-weather-toggle" style="flex: 1; min-width: 120px;" onclick="setWeatherCrisis('fog')">🌫️ Ceață Densă (CAT III)</button>
+                        <button id="btn-weather-storm" class="btn-weather-toggle" style="flex: 1; min-width: 120px;" onclick="setWeatherCrisis('storm')">⛈️ Furtună & Vânt</button>
                     </div>
                 </div>
             </div>
@@ -214,38 +234,43 @@
     <div id="tab-reroute" class="tab-content">
         <div class="grid-2">
             <div class="card">
-                <h2>Rute Alternative Identificate (Direct & Escală)</h2>
+                <h2>Rute Alternative Disponibile (Re-booking Imediat)</h2>
                 <div id="routes-container">
-                    <!-- Populated dynamically via JS -->
+                    <!-- Populated dynamically via JS with Buy / Rebook Button -->
                 </div>
             </div>
 
             <div class="card">
-                <h2>Voucher de Compensație Pasager</h2>
-                <div class="voucher-box" id="voucher-box">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="font-weight: 800; font-size: 14px; color: #0369a1;">VOUCHER LEGAL EU261</span>
-                        <span id="voucher-amount" style="font-size: 20px; font-weight: 800; color: #0284c7;">€400</span>
-                    </div>
-                    <div style="font-size: 12px; margin-bottom: 6px;">
-                        <strong>Baza legală:</strong> <span id="voucher-regulation">Regulamentul (CE) Nr. 261/2004</span>
-                    </div>
-                    <div style="font-size: 12px; margin-bottom: 6px;">
-                        <strong>Pasager:</strong> <span id="voucher-passenger">Damian</span>
-                    </div>
-                    <div style="font-size: 12px; margin-bottom: 6px;">
-                        <strong>Motiv:</strong> <span id="voucher-reason">Anulare / Risc critic zbor</span>
-                    </div>
-                    <div style="margin-top: 10px; border-top: 1px dashed #7dd3fc; padding-top: 8px;">
-                        <span style="font-size: 11px; color: #0284c7; display: block; margin-bottom: 4px;">COD VOUCHER:</span>
-                        <span id="voucher-code" class="voucher-code">EU261-OTP-XXXXXX</span>
-                    </div>
+                <h2>Status Re-alocare Pasager</h2>
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 14px; border-radius: 8px; margin-bottom: 14px;">
+                    <div style="font-size: 14px; font-weight: 700; color: #166534; margin-bottom: 4px;">✅ Garanția Conectivității Inteligente</div>
+                    <p style="font-size: 12px; color: #15803d; line-height: 1.4;">
+                        În cazul perturbărilor meteorologice, Smart AeroPilot analizează rețeaua companiilor partenere și îți permite să selectezi direct zborul de salvare fără costuri suplimentare.
+                    </p>
                 </div>
 
-                <div style="margin-top: 14px;">
-                    <button class="btn-primary" style="width: 100%;" onclick="alert('Confirmare trimisă cu succes!')">
-                        Confirmă Re-rutarea & Emite Noul Boarding Pass
-                    </button>
+                <div id="active-rebook-summary" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; font-size: 13px; margin-bottom: 14px;">
+                    <div>Pasager activ: <strong id="reroute-passenger-display">Damian Dabija</strong></div>
+                    <div>Zbor afectat: <strong id="reroute-flight-display">RO301 (OTP → LHR)</strong></div>
+                    <div style="color: #64748b; font-size: 12px; margin-top: 4px;">Alege una din opțiunile din stânga pentru a emite noul bilet electronic.</div>
+                </div>
+
+                <!-- Discreet EU261 compensation voucher section as requested -->
+                <div class="discreet-voucher-container" style="border-top: 1px solid #e2e8f0; padding-top: 12px;">
+                    <details style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #64748b;">
+                        <summary style="cursor: pointer; font-size: 11px; color: #64748b; font-weight: 500; outline: none; user-select: none;">
+                            Drepturi pasager & compensație conform Regulamentului (CE) nr. 261/2004 ▼
+                        </summary>
+                        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #cbd5e1; font-size: 11px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>Compensație calculată: <strong id="voucher-amount" style="color: #0284c7;">€400</strong></span>
+                                <span style="color: #94a3b8; font-family: monospace;" id="voucher-code">EU261-OTP-XXXXXX</span>
+                            </div>
+                            <div style="margin-top: 4px; color: #94a3b8; font-size: 10px;">
+                                Dosar înregistrat pentru pasagerul <span id="voucher-passenger">Damian</span>. Regulamentul CE 261/2004.
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>
@@ -254,24 +279,38 @@
     <!-- TAB 5: ADMIN JAVA REROUTE ENGINE DISPATCH -->
     <div id="tab-java" class="tab-content">
         <div class="card" style="border-left: 4px solid #ef4444;">
-            <h2>Dispecerat Re-rutare Java (Time-dependent Dijkstra)</h2>
+            <h2>Dispecerat Operațional & Motor Re-rutare Java (Dijkstra)</h2>
             <p style="font-size: 13px; color: #475569; margin-bottom: 12px;">
-                Modulul dezvoltat de echipă în Java analizează întreg graful aeroportuar, prioritizează pasagerii (familii, conexiuni strânse, deadline-uri) și le re-rezervă automat locuri pe zboruri cu escală.
+                Algoritmul Time-dependent Dijkstra analizează în timp real rețeaua europeană, prioritizează pasagerii după statut, conexiuni critice și familii, redistribuind automat locurile disponibile.
             </p>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <label style="margin: 0; min-width: 110px;">Zbor de Anulat:</label>
-                <select id="java-flight-select" style="margin: 0; max-width: 250px;">
-                    <option value="AP103">AP103 — Henri Coandă (LROP) → Paris CDG (LFPG)</option>
-                    <option value="AP105">AP105 — Henri Coandă (LROP) → Viena (LOWW)</option>
-                    <option value="AP104">AP104 — Henri Coandă (LROP) → Amsterdam (EHAM)</option>
-                    <option value="AP106">AP106 — Henri Coandă (LROP) → Frankfurt (EDDF)</option>
+                <label style="margin: 0; min-width: 120px; font-weight: 600;">Selectează Zbor:</label>
+                <select id="java-flight-select" style="margin: 0; min-width: 280px; flex: 1;">
+                    <!-- Populated dynamically with all real flights -->
                 </select>
-                <button class="btn-danger" onclick="executeJavaCancel()">🚨 Execută Anulare & Re-rutare Java</button>
+                <button class="btn-danger" onclick="executeJavaCancel()">🚨 Simulează Anulare Zbor & Rerutare Java</button>
             </div>
         </div>
 
         <div class="card" id="java-results-card" style="display: none;">
-            <h3>Rezultate Re-rutare Pasageri (Java Engine)</h3>
+            <h3>Rezultate Re-alocare & Manifest Pasageri Simulat</h3>
+            
+            <!-- Summary Metrics Cards -->
+            <div class="grid-3" style="margin-bottom: 16px;">
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; text-align: center;">
+                    <div style="font-size: 11px; color: #64748b;">PASAGERI AFECTAȚI</div>
+                    <div id="dispatch-total-pax" style="font-size: 22px; font-weight: 800; color: #0f172a;">142</div>
+                </div>
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px; text-align: center;">
+                    <div style="font-size: 11px; color: #166534;">RERUTAȚI AUTOMAT</div>
+                    <div id="dispatch-rerouted-pct" style="font-size: 22px; font-weight: 800; color: #16a34a;">96% (136)</div>
+                </div>
+                <div style="background: #fefce8; border: 1px solid #fef08a; border-radius: 6px; padding: 10px; text-align: center;">
+                    <div style="font-size: 11px; color: #854d0e;">HOTEL ASIGURAT (MÂINE)</div>
+                    <div id="dispatch-hotel-count" style="font-size: 22px; font-weight: 800; color: #ca8a04;">6</div>
+                </div>
+            </div>
+
             <div id="java-summary" style="font-size: 13px; font-weight: 600; color: #0284c7; margin-bottom: 12px;"></div>
             <div style="overflow-x: auto;">
                 <table class="data-table" id="java-passengers-table">
@@ -279,11 +318,11 @@
                         <tr>
                             <th>Pasager</th>
                             <th>Prioritate</th>
-                            <th>Detalii Situație</th>
-                            <th>Zbor / Itinerariu Nou Atribuit</th>
+                            <th>Categorie</th>
+                            <th>Itinerariu Nou Alocat</th>
                             <th>Întârziere</th>
-                            <th>Compensație Voucher</th>
-                            <th>Status</th>
+                            <th>Status Re-alocare</th>
+                            <th>Acțiune</th>
                         </tr>
                     </thead>
                     <tbody id="java-passengers-tbody">
@@ -316,6 +355,81 @@
             <div style="margin-top: 14px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px;">
                 💡 <strong>Cont Admin:</strong> utilizator <code>admin</code>, parolă <code>admin</code> (acces complet CCTV și dispecerat Java).<br>
                 💡 <strong>Cont Pasager:</strong> orice alt nume (doar recomandare bandă rapidă, fără acces la camere).
+            </div>
+        </div>
+    </div>
+
+    <!-- BOARDING PASS / TICKET MODAL -->
+    <div id="boarding-pass-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-box" style="max-width: 520px; padding: 0; overflow: hidden; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);">
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #fff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #38bdf8; font-weight: 700;">Smart AeroPilot • Bilet Re-booking</span>
+                    <h3 style="margin: 2px 0 0 0; font-size: 17px;">Bilet Electronic de Îmbarcare</h3>
+                </div>
+                <span style="background: #16a34a; color: #fff; font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700;">CONFIRMAT</span>
+            </div>
+
+            <div style="padding: 20px; background: #fff;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #e2e8f0; padding-bottom: 12px; margin-bottom: 14px;">
+                    <div>
+                        <span style="font-size: 10px; color: #64748b; display: block; font-weight: 600;">PASAGER</span>
+                        <strong id="ticket-passenger-name" style="font-size: 15px; color: #0f172a;">Damian Dabija</strong>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 10px; color: #64748b; display: block; font-weight: 600;">COD REZERVARE (PNR)</span>
+                        <strong id="ticket-pnr-code" style="font-size: 17px; color: #0284c7; letter-spacing: 1px; font-family: monospace;">AP-8492X</strong>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; text-align: center; margin-bottom: 14px;">
+                    <div style="text-align: left;">
+                        <div id="ticket-origin-code" style="font-size: 26px; font-weight: 800; color: #0f172a;">OTP</div>
+                        <div id="ticket-origin-city" style="font-size: 11px; color: #64748b;">București Henri Coandă</div>
+                        <div id="ticket-departure-time" style="font-size: 13px; font-weight: 700; color: #2563eb; margin-top: 2px;">20:30</div>
+                    </div>
+                    <div style="color: #94a3b8; font-size: 18px;">✈️</div>
+                    <div style="text-align: right;">
+                        <div id="ticket-dest-code" style="font-size: 26px; font-weight: 800; color: #0f172a;">LHR</div>
+                        <div id="ticket-dest-city" style="font-size: 11px; color: #64748b;">Londra Heathrow</div>
+                        <div id="ticket-arrival-time" style="font-size: 13px; font-weight: 700; color: #2563eb; margin-top: 2px;">22:05</div>
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; text-align: center; margin-bottom: 14px;">
+                    <div>
+                        <span style="font-size: 9px; color: #64748b; display: block;">ZBOR NOU</span>
+                        <strong id="ticket-flight-number" style="font-size: 12px; color: #0f172a;">BA887</strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 9px; color: #64748b; display: block;">POARTĂ</span>
+                        <strong id="ticket-gate" style="font-size: 12px; color: #0f172a;">04B</strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 9px; color: #64748b; display: block;">LOC</span>
+                        <strong id="ticket-seat" style="font-size: 12px; color: #0f172a;">14C</strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 9px; color: #64748b; display: block;">STATUT</span>
+                        <strong id="ticket-status-label" style="font-size: 12px; color: #16a34a;">0 € Rebook</strong>
+                    </div>
+                </div>
+
+                <!-- Fake Barcode Representation -->
+                <div style="text-align: center; padding: 8px 0; border-top: 1px dashed #cbd5e1; border-bottom: 1px dashed #cbd5e1; margin-bottom: 14px;">
+                    <div style="letter-spacing: 5px; font-family: monospace; font-size: 22px; font-weight: 900; color: #1e293b; user-select: none;">
+                        ||| | |||| | ||| |||| | || | |||| ||
+                    </div>
+                    <div id="ticket-eticket-num" style="font-size: 10px; color: #94a3b8; margin-top: 3px; font-family: monospace;">E-TKT: 281-9482019482 • DIGITALLY VERIFIED</div>
+                </div>
+
+                <div id="ticket-alert-msg" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; font-size: 12px; padding: 8px; border-radius: 6px; margin-bottom: 12px; text-align: center;"></div>
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn-primary" style="flex: 1;" onclick="downloadTicketPdf()">📥 Descarcă Bilet PDF</button>
+                    <button class="btn-secondary" style="flex: 1;" onclick="saveToWallet()">📲 Apple Wallet / Google Pay</button>
+                    <button class="btn-secondary" onclick="closeBoardingPassModal()">Închide</button>
+                </div>
             </div>
         </div>
     </div>
